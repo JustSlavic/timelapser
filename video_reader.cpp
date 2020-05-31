@@ -83,8 +83,8 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
-    int packets_left = 10;
-    while (packets_left) {
+    int frames_left = 10;
+    while (frames_left) {
         if (av_read_frame(pFormatCtx, pPacket) < 0) {
             fprintf(stderr, "Failed to read next frame because of error or EOF\n");
             break;
@@ -99,6 +99,10 @@ int main(int argc, char **argv) {
             while (true) {
                 int err = avcodec_receive_frame(pCodecCtx, pFrame);
                 if (err == AVERROR(EAGAIN)) { break; }
+                if (err == AVERROR_EOF) {
+                    frames_left = 0;
+                    break;
+                }
                 if (err < 0) {
                     fprintf(stderr, "Failed to receive decoded frame: %s\n", av_err2str(err));
                     exit(1);
@@ -115,10 +119,11 @@ int main(int argc, char **argv) {
                 char frame_filename[1024];
                 snprintf(frame_filename, sizeof(frame_filename), "%s-%d.pgm", "frame", pCodecCtx->frame_number);
                 save_gray_frame(pFrame->data[0], pFrame->linesize[0], pFrame->width, pFrame->height, frame_filename);
+
+                frames_left -= 1;
             }
         }
 
-        packets_left -= 1;
         av_packet_unref(pPacket);
     }
 
