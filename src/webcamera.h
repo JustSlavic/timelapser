@@ -13,6 +13,8 @@ struct WebCamera {
         size_t size{0};
 
         FrameBuffer(void *data, size_t size);
+        FrameBuffer(const FrameBuffer&) = delete;
+        FrameBuffer(FrameBuffer&&);
         ~FrameBuffer();
     };
 

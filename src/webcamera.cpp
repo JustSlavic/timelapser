@@ -37,6 +37,14 @@ WebCamera::FrameBuffer::~FrameBuffer() {
     }
 }
 
+WebCamera::FrameBuffer::FrameBuffer(FrameBuffer &&other) {
+    start = other.start;
+    size = other.size;
+
+    other.start = nullptr;
+    other.size = 0;
+}
+
 
 const char *pixel_format_cstr(int fmt) {
     switch (fmt) {

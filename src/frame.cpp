@@ -11,7 +11,7 @@ Frame::Frame(void *data_, size_t size_) {
 
     memcpy(data, data_, size_);
 
-    LOG_DEBUG << "Frame default constructed.";
+    LOG_DEBUG << "Frame constructed.";
 }
 
 
