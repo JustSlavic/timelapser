@@ -1,4 +1,19 @@
+# JetBrains IDE directories
 cmake-build-debug/
 cmake-build-release/
 .idea/
 
+# Make directories
+bin/
+build/
+data/
+
+# Binary files
+*.o
+run
+vr
+
+# Video files
+*.avi
+*.mp4
+*.mkv

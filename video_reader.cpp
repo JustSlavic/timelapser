@@ -19,16 +19,18 @@ int main(int argc, char **argv) {
 
     AVFormatContext *pFormatCtx = nullptr;
     if (avformat_open_input(&pFormatCtx, argv[1], nullptr, nullptr) < 0) {
-        fprintf(stderr, "Could not open %s\n", argv[1]);
+        fprintf(stderr, "Could not open file \"%s\".\n", argv[1]);
         exit(1);
     }
+
+    printf("Format %s, duration: %ld us.\n", pFormatCtx->iformat->long_name, pFormatCtx->duration);
 
     if (avformat_find_stream_info(pFormatCtx, nullptr) < 0) {
-        fprintf(stderr, "Could not find stream info\n");
+        fprintf(stderr, "Could not find stream info.\n");
         exit(1);
     }
 
-    av_dump_format(pFormatCtx, 0, argv[1], 0);
+    // av_dump_format(pFormatCtx, 0, argv[1], 0);
 
     AVCodec *pCodec = nullptr;
     AVCodecParameters *pCodecParams = nullptr;
@@ -54,6 +56,16 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Could not find decoder\n");
         exit(1);
     }
+
+    printf("Codec:\n"
+           "    Name: %s\n"
+           "    ID: %d\n"
+           "    Resolution: %dx%d\n"
+           "    Bit rate: %ld\n"
+           "\n",
+           pCodec->long_name, pCodec->id,
+           pCodecParams->width, pCodecParams->height,
+           pCodecParams->bit_rate);
 
     AVCodecContext *pCodecCtx = avcodec_alloc_context3(pCodec);
     if (pCodecCtx == nullptr) {
@@ -83,7 +95,7 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
-    int frames_left = 10;
+    int frames_left = 32;
     while (frames_left) {
         if (av_read_frame(pFormatCtx, pPacket) < 0) {
             fprintf(stderr, "Failed to read next frame because of error or EOF\n");
@@ -117,7 +129,7 @@ int main(int argc, char **argv) {
                        pFrame->coded_picture_number);
 
                 char frame_filename[1024];
-                snprintf(frame_filename, sizeof(frame_filename), "%s-%d.pgm", "frame", pCodecCtx->frame_number);
+                snprintf(frame_filename, sizeof(frame_filename), "data/%s-%d.pgm", "frame", pCodecCtx->frame_number);
                 save_gray_frame(pFrame->data[0], pFrame->linesize[0], pFrame->width, pFrame->height, frame_filename);
 
                 frames_left -= 1;
