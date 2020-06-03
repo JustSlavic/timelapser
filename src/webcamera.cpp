@@ -33,7 +33,7 @@ WebCamera::FrameBuffer::FrameBuffer(void *data, size_t size)
 
 WebCamera::FrameBuffer::~FrameBuffer() {
     if (munmap(start, size) < 0) {
-        LOG_ERROR << "Cannot unmap memory.";
+        LOG_ERROR << "Cannot unmap memory";
     }
 }
 
@@ -76,7 +76,7 @@ void WebCamera::open(const char *device) {
             throw std::runtime_error("Web camera /dev/video0 not found");
         }
 
-        LOG_INFO << "Device " << device << " open.";
+        LOG_INFO << "Device " << device << " open";
     }
 
     {
@@ -86,7 +86,7 @@ void WebCamera::open(const char *device) {
             throw std::runtime_error("Failed to get device capabilities, VIDIOC_QUERYCAP");
         }
 
-        LOG_DEBUG << "Capabilities negotiated.";
+        LOG_DEBUG << "Capabilities negotiated";
     }
 
     {
@@ -99,9 +99,9 @@ void WebCamera::open(const char *device) {
         }
 
         LOG_DEBUG << "Negotiated image format:";
-        LOG_DEBUG << "  Resolution: " << image_format.fmt.pix.width << "x" << image_format.fmt.pix.height;
-        LOG_DEBUG << "  Pixel format: " << pixel_format_cstr(image_format.fmt.pix.pixelformat);
-        LOG_DEBUG << "  Image size: " << image_format.fmt.pix.sizeimage << " bytes";
+        LOG_DEBUG << "    Resolution: " << image_format.fmt.pix.width << "x" << image_format.fmt.pix.height;
+        LOG_DEBUG << "    Pixel format: " << pixel_format_cstr(image_format.fmt.pix.pixelformat);
+        LOG_DEBUG << "    Image size: " << image_format.fmt.pix.sizeimage << " bytes";
     }
 }
 
@@ -112,11 +112,11 @@ void init_mmap(WebCamera *camera, size_t n) {
     request.count = n;
 
     if (ioctl(camera->descriptor, VIDIOC_REQBUFS, &request) < 0) {
-        throw std::runtime_error("Could not request buffer from device, VIDIOC_REQBUFS.");
+        throw std::runtime_error("Could not request buffer from device, VIDIOC_REQBUFS");
     }
 
     if (request.count < 2) {
-        throw std::runtime_error("Insufficient buffer memory.");
+        throw std::runtime_error("Insufficient buffer memory");
     }
 
     camera->buffers.reserve(request.count);
@@ -128,7 +128,7 @@ void init_mmap(WebCamera *camera, size_t n) {
         buffer.index = i;
 
         if (ioctl(camera->descriptor, VIDIOC_QUERYBUF, &buffer) < 0) {
-            throw std::runtime_error("Could not query this buffer.");
+            throw std::runtime_error("Could not query this buffer");
         }
 
 
@@ -136,7 +136,7 @@ void init_mmap(WebCamera *camera, size_t n) {
             MAP_SHARED, camera->descriptor, buffer.m.offset);
 
         if (memory == MAP_FAILED) {
-            throw std::runtime_error("Could not mmap memory for buffer.");
+            throw std::runtime_error("Could not mmap memory for buffer");
         }
 
         camera->buffers.emplace_back(memory, buffer.length);
@@ -147,7 +147,7 @@ void WebCamera::init_buffers(size_t n) {
     if (io == IO_METHOD_MMAP) {
         init_mmap(this, n);
     } else {
-        throw std::runtime_error("No IOMethod provided.");
+        throw std::runtime_error("No IOMethod provided");
     }
 }
 
@@ -161,28 +161,28 @@ void WebCamera::start() {
             buffer.index = i;
 
             if (ioctl(descriptor, VIDIOC_QBUF, &buffer) < 0) {
-                throw std::runtime_error("Cannot queue buffer.");
+                throw std::runtime_error("Cannot queue buffer");
             }
         }
 
         v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         if (ioctl(descriptor, VIDIOC_STREAMON, &type) < 0) {
-            throw std::runtime_error("Cannot start video stream from camera.");
+            throw std::runtime_error("Cannot start video stream from camera");
         }
     }
 
     state = State::StreamON;
-    LOG_INFO << "Camera video stream started.";
+    LOG_INFO << "Camera video stream started";
 }
 
 void WebCamera::stop() {
     v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     if (ioctl(descriptor, VIDIOC_STREAMOFF, &type) < 0) {
-        throw std::runtime_error("Cannot stop video stream from camera.");
+        throw std::runtime_error("Cannot stop video stream from camera");
     }
 
     state = State::StreamOFF;
-    LOG_INFO << "Camera video stream stopped.";
+    LOG_INFO << "Camera video stream stopped";
 }
 
 Frame WebCamera::get_frame() {
@@ -193,19 +193,19 @@ Frame WebCamera::get_frame() {
         buffer.memory = V4L2_MEMORY_MMAP;
 
         if (ioctl(descriptor, VIDIOC_DQBUF, &buffer) < 0) {
-            throw std::runtime_error("Failed dequeue buffer.");
+            throw std::runtime_error("Failed dequeue buffer");
         }
 
         Frame frame(buffers[buffer.index].start, buffer.bytesused);
 
         if (ioctl(descriptor, VIDIOC_QBUF, &buffer) < 0) {
-            throw std::runtime_error("Cannot queue buffer.");
+            throw std::runtime_error("Cannot queue buffer");
         }
 
         return frame;
     }
 
-    throw std::runtime_error("Unsupported io method.");
+    throw std::runtime_error("Unsupported io method");
 }
 
 }

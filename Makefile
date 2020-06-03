@@ -51,19 +51,24 @@ SOURCES      := $(addprefix src/,     $(addsuffix .cpp, $(SOURCES)))
 
 # ==================================================================== #
 
-.PHONY: set_debug debug prebuild postbuild clean
+.PHONY: set_debug debug release prebuild postbuild clean
 
 
 all: prebuild bin/$(PROJECT) bin/vr postbuild
 
-debug: set_debug all
+debug: clean set_debug all
 
 set_debug:
-	$(eval CXXFLAGS += -ggdb3)
+	$(eval CXXFLAGS += -ggdb3 -D_DEBUG)
+
+release: clean set_release all
+
+set_release:
+	$(eval CXXFLAGS += -O2 -D_RELEASE)
 
 
 bin/$(PROJECT): main.cpp $(OBJECTS)
-	g++ main.cpp $(OBJECTS) -O0 -o bin/$(PROJECT) $(CXXFLAGS) $(LDFLAGS)
+	g++ main.cpp $(OBJECTS) -o bin/$(PROJECT) $(CXXFLAGS) $(LDFLAGS)
 
 
 bin/vr: video_reader.cpp

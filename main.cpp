@@ -23,14 +23,15 @@ int main(int argc, char **argv) {
         frames.reserve(5000);
 
         my::VideoRenderer renderer;
+        renderer.find_codec("H264");
 
-        for (int i = 0; i < 3; ++i) {
+        for (int i = 0; i < 300; ++i) {
             auto frame = camera.get_frame();
             frames.push_back(std::move(frame));
-            std::this_thread::sleep_for(std::chrono::microseconds(100));
+            // std::this_thread::sleep_for(std::chrono::microseconds(100));
         }
 
-        // renderer.render(queue);
+        renderer.render(frames);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         exit(EXIT_FAILURE);
