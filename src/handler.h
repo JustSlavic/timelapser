@@ -4,25 +4,27 @@
 #include <fstream>
 #include "logging.h"
 
+namespace Log {
 
-struct LogHandler {
-    Log::Level level = Log::Level::Debug;
+struct Handler {
+    Level level = Level::Debug;
     virtual void write(const std::stringstream& log) = 0;
 };
 
-struct LogFileHandler : public LogHandler {
+struct FileHandler : public Handler {
     std::ofstream output;
 
-    explicit LogFileHandler(const char *filename, Log::Level handler_level = Log::Level::Debug);
+    explicit FileHandler(const char *filename, Level handler_level = Level::Debug);
     void write(const std::stringstream& log) override;
 };
 
-struct LogStreamHandler : public LogHandler {
+struct StreamHandler : public Handler {
     std::ostream &output;
 
-    explicit LogStreamHandler(std::ostream &stream, Log::Level handler_level = Log::Level::Debug);
+    explicit StreamHandler(std::ostream &stream, Level handler_level = Level::Debug);
     void write(const std::stringstream& log) override;
 };
 
+}
 
 #endif //GIR1_HANDLER_H

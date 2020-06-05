@@ -10,7 +10,7 @@
 
 int main(int argc, char **argv) {
     try {
-        LogGlobalContext::instance()
+        Log::GlobalContext::instance()
             .set_level(Log::Level::Debug)
             .attach(std::cout);
 

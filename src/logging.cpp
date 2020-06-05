@@ -4,14 +4,16 @@
 #include <ctime>
 #include <iomanip>
 
-LogLocalContext::LogLocalContext() noexcept : name(nullptr) {}
+namespace Log {
 
-LogLocalContext::LogLocalContext(const char *name) noexcept : name(name) {}
+LocalContext::LocalContext() noexcept : name(nullptr) {}
 
-Log::Log(LogLocalContext ctx) : context(ctx) {}
+LocalContext::LocalContext(const char *name) noexcept : name(name) {}
+
+Log::Log(LocalContext ctx) : context(ctx) {}
 
 Log::~Log() {
-    LogGlobalContext::instance().write(log, level, context);
+    GlobalContext::instance().write(log, level, context);
 }
 
 Log &Log::error() {
@@ -34,22 +36,22 @@ Log &Log::debug() {
     return *this;
 }
 
-const char *log_level_to_cstr(Log::Level level) {
+const char *log_level_to_cstr(Level level) {
     switch (level) {
-    case Log::Level::Error: return "ERROR";
-    case Log::Level::Warning: return "WARNING";
-    case Log::Level::Info: return "INFO";
-    case Log::Level::Debug: return "DEBUG";
+    case Level::Error: return "ERROR";
+    case Level::Warning: return "WARNING";
+    case Level::Info: return "INFO";
+    case Level::Debug: return "DEBUG";
         default: return "";
     }
 }
 
-LogGlobalContext &LogGlobalContext::instance() {
-    static LogGlobalContext instance;
+GlobalContext &GlobalContext::instance() {
+    static GlobalContext instance;
     return instance;
 }
 
-void LogGlobalContext::write(std::stringstream &log, Log::Level log_level, LogLocalContext ctx) const {
+void GlobalContext::write(std::stringstream &log, Level log_level, LocalContext ctx) const {
     if (log_level < level) return;
 
     std::time_t t = std::time(nullptr);
@@ -70,23 +72,25 @@ void LogGlobalContext::write(std::stringstream &log, Log::Level log_level, LogLo
     }
 }
 
-LogGlobalContext &LogGlobalContext::set_level(Log::Level new_level) {
+GlobalContext &GlobalContext::set_level(Level new_level) {
     this->level = new_level;
     return *this;
 }
 
-LogGlobalContext &LogGlobalContext::attach(std::ostream &os, Log::Level handler_level) {
-    outputs.push_back(std::make_unique<LogStreamHandler>(os, handler_level));
+GlobalContext &GlobalContext::attach(std::ostream &os, Level handler_level) {
+    outputs.push_back(std::make_unique<StreamHandler>(os, handler_level));
     return *this;
 }
 
-LogGlobalContext &LogGlobalContext::attach(const char *filename, Log::Level handler_level) {
-    outputs.push_back(std::make_unique<LogFileHandler>(filename, handler_level));
+GlobalContext &GlobalContext::attach(const char *filename, Level handler_level) {
+    outputs.push_back(std::make_unique<FileHandler>(filename, handler_level));
     return *this;
 }
 
-LogGlobalContext &LogGlobalContext::reset() {
-    level = Log::Level::Debug;
+GlobalContext &GlobalContext::reset() {
+    level = Level::Debug;
     outputs.clear();
     return *this;
+}
+
 }

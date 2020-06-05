@@ -10,13 +10,13 @@
 #define STRINGIFY(X) STRINGIFY2(X)
 
 #ifdef _DEBUG
-#define LOG_CONTEXT(name) static LogLocalContext log_ctx_(name)
-#define LOG_DEBUG Log(LogLocalContext(__FILE__ ":" STRINGIFY(__LINE__))).debug()
-#define LOG_INFO Log(LogLocalContext(__FILE__ ":" STRINGIFY(__LINE__))).info()
-#define LOG_WARNING Log(LogLocalContext(__FILE__ ":" STRINGIFY(__LINE__))).warning()
-#define LOG_ERROR Log(LogLocalContext(__FILE__ ":" STRINGIFY(__LINE__))).error()
+#define LOG_CONTEXT(name) static Log::LocalContext log_ctx_(name)
+#define LOG_DEBUG Log::Log(Log::LocalContext(__FILE__ ":" STRINGIFY(__LINE__))).debug()
+#define LOG_INFO Log::Log(Log::LocalContext(__FILE__ ":" STRINGIFY(__LINE__))).info()
+#define LOG_WARNING Log::Log(Log::LocalContext(__FILE__ ":" STRINGIFY(__LINE__))).warning()
+#define LOG_ERROR Log::Log(Log::LocalContext(__FILE__ ":" STRINGIFY(__LINE__))).error()
 #else
-#define LOG_CONTEXT(name) struct __SEMICOLON
+#define LOG_CONTEXT(name) struct SEMICOLON__
 struct DevNullSink {};
 template <typename T>
 DevNullSink const& operator<<(DevNullSink const& sink, T const&) { return sink; }
@@ -26,27 +26,29 @@ DevNullSink const& operator<<(DevNullSink const& sink, T const&) { return sink; 
 #define LOG_ERROR DevNullSink()
 #endif
 
-struct LogLocalContext {
+namespace Log {
+
+enum class Level {
+    Debug,
+    Info,
+    Warning,
+    Error,
+    Disabled,
+};
+
+struct LocalContext {
     const char *name;
 
-    LogLocalContext() noexcept;
-    explicit LogLocalContext(const char *name) noexcept;
+    LocalContext() noexcept;
+    explicit LocalContext(const char *name) noexcept;
 };
 
 struct Log {
-    enum class Level {
-        Debug,
-        Info,
-        Warning,
-        Error,
-        Disabled,
-    };
-
-    LogLocalContext context;
+    LocalContext context;
     Level level = Level::Disabled;
     std::stringstream log;
 
-    explicit Log(LogLocalContext ctx = LogLocalContext());
+    explicit Log(LocalContext ctx = LocalContext());
     ~Log();
 
     Log &error();
@@ -61,21 +63,23 @@ Log &operator<<(Log &logger, T&& data) {
     return logger;
 }
 
-struct LogHandler;
-struct LogGlobalContext {
-    Log::Level level = Log::Level::Debug;
-    std::vector<std::unique_ptr<LogHandler>> outputs;
+struct Handler;
+struct GlobalContext {
+    Level level = Level::Debug;
+    std::vector<std::unique_ptr<Handler>> outputs;
 
-    static LogGlobalContext &instance();
-    LogGlobalContext &set_level(Log::Level level);
-    LogGlobalContext &attach(std::ostream &os, Log::Level level = Log::Level::Debug);
-    LogGlobalContext &attach(const char *filename, Log::Level level = Log::Level::Debug);
-    LogGlobalContext &reset();
+    static GlobalContext &instance();
+    GlobalContext &set_level(Level level);
+    GlobalContext &attach(std::ostream &os, Level level = Level::Debug);
+    GlobalContext &attach(const char *filename, Level level = Level::Debug);
+    GlobalContext &reset();
 
-    void write(std::stringstream &log, Log::Level log_level, LogLocalContext ctx) const;
+    void write(std::stringstream &log, Level log_level, LocalContext ctx) const;
 
 private:
-    LogGlobalContext() = default;
+    GlobalContext() = default;
 };
+
+}
 
 #endif //GIR1_LOGGING_H

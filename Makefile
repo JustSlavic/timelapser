@@ -27,8 +27,24 @@ LDFLAGS := \
 	$(addprefix -l, $(LIBS))
 
 
+ifndef MAKECMDGOALS
+	SUB_DIR  := debug
+	CXXFLAGS += -ggdb3
+	CXXFLAGS += -D_DEBUG
+else ifeq ($(MAKECMDGOALS),debug)
+	SUB_DIR  := debug
+	CXXFLAGS += -ggdb3
+	CXXFLAGS += -D_DEBUG
+else ifeq ($(MAKECMDGOALS),release)
+	SUB_DIR  := release
+	CXXFLAGS += -O2 -D_RELEASE
+endif
 
-HEADERS = \
+EXE_PATH := bin/$(SUB_DIR)/$(PROJECT)
+
+
+
+HEADERS := \
 	frame \
 	webcamera \
 	video_renderer \
@@ -36,7 +52,7 @@ HEADERS = \
 	handler \
 
 
-SOURCES = \
+SOURCES := \
 	frame \
 	webcamera \
 	video_renderer \
@@ -44,51 +60,36 @@ SOURCES = \
 	handler \
 
 
-HEADERS      := $(addprefix src/,     $(addsuffix .h,   $(HEADERS)))
-OBJECTS      := $(addprefix build/,   $(addsuffix .o,   $(SOURCES)))
-SOURCES      := $(addprefix src/,     $(addsuffix .cpp, $(SOURCES)))
+OBJECTS := $(addprefix build/$(SUB_DIR)/, $(addsuffix .o, $(SOURCES)))
 
 
 # ==================================================================== #
 
-.PHONY: set_debug debug release prebuild postbuild clean
+.PHONY: all debug release prebuild postbuild clean
 
 
-all: prebuild bin/$(PROJECT) bin/vr postbuild
+all: debug
 
-debug: clean set_debug all
+debug: prebuild $(EXE_PATH) postbuild
 
-set_debug:
-	$(eval CXXFLAGS += -ggdb3 -D_DEBUG)
-
-release: clean set_release all
-
-set_release:
-	$(eval CXXFLAGS += -O2 -D_RELEASE)
-
-
-bin/$(PROJECT): main.cpp $(OBJECTS)
-	g++ main.cpp $(OBJECTS) -o bin/$(PROJECT) $(CXXFLAGS) $(LDFLAGS)
-
-
-bin/vr: video_reader.cpp
-	g++ video_reader.cpp -o bin/vr $(CXXFLAGS) $(LDFLAGS)
-
-
-build/%.o: src/%.cpp src/%.h
-	g++ $< -c -o $@ $(CXXFLAGS)
-
+release: prebuild $(EXE_PATH) postbuild
 
 prebuild:
-	@mkdir -p bin
-	@mkdir -p build
+	@mkdir -p bin/$(SUB_DIR)
+	@mkdir -p build/$(SUB_DIR)
 
+$(EXE_PATH): main.cpp $(OBJECTS)
+	g++ main.cpp $(OBJECTS) -o $(EXE_PATH) $(CXXFLAGS) $(LDFLAGS)
+
+build/$(SUB_DIR)/%.o: src/%.cpp src/%.h
+	g++ $< -c -o $@ $(CXXFLAGS)
 
 postbuild:
-	@ln -sfn bin/$(PROJECT) run
+	@ln -sfn $(EXE_PATH) run
 
 
 clean:
-	find build -type f -name '*.o' -delete
-	rm -f bin/$(PROJECT)
-	rm -f bin/vr
+	@find build -type f -name '*.o' -delete
+	@rm -f $(EXE_PATH)
+	@rm -f run
+	@echo "Cleaned"
