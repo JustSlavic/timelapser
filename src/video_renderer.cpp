@@ -6,6 +6,7 @@ extern "C" {
 
 #include <cstdio>
 #include <string>
+#include <fstream>
 #include <stdexcept>
 
 #include <logging.h>
@@ -46,8 +47,8 @@ void VideoRenderer::find_codec(const char *name) {
 
     codec_context->gop_size = 10;  // magic
     codec_context->max_b_frames = 1;  // magic
-    // codec_context->pix_fmt = AV_PIX_FMT_YUV422P;
-    codec_context->pix_fmt = AV_PIX_FMT_YUV420P;
+    codec_context->pix_fmt = AV_PIX_FMT_YUV422P;
+    // codec_context->pix_fmt = AV_PIX_FMT_YUV420P;
 
     // magic
     if (codec->id == AV_CODEC_ID_H264) {
@@ -103,29 +104,52 @@ void VideoRenderer::render(const std::vector<Frame> &frames) {
         throw std::runtime_error("Could not open file output.mp4");
     }
 
+    LOG_DEBUG << "File output.mp4 open";
+    LOG_DEBUG << "Start rendering";
+
+
+    std::ofstream out;
+    out.open("renderer_image.jpg", std::ios::binary);
+    out.write((char*)frames[0].data, frames[0].size);
+    out.close();
+
+    LOG_DEBUG << "Frame:";
+    LOG_DEBUG << "    size:     " << frame->width << "x" << frame->height;
+    LOG_DEBUG << "    linesize: [" << frame->linesize[0]
+              << ", " << frame->linesize[1] << ", " << frame->linesize[2] << "]";
+
     int i = 0;
     for (Frame const &frame_data : frames) {
         if (av_frame_make_writable(frame) < 0) {
             throw std::runtime_error("Could not make frame writable");
         }
 
-        // prepare a dummy image
-        for (int y = 0; y < codec_context->height; y++) {
-            for (int x = 0; x < codec_context->width; x++) {
-                frame->data[0][y * frame->linesize[0] + x] = x + y + i * 3;
-            }
-        }
-
-        for (int y = 0; y < codec_context->height / 2; y++) {
-            for (int x = 0; x < codec_context->width / 2; x++) {
-                frame->data[1][y * frame->linesize[1] + x] = 128 + y + i * 2;
-                frame->data[2][y * frame->linesize[2] + x] = 64 + x + i * 5;
+        int i_data = 0;
+        for (int y = 0; y < codec_context->height; ++y) {
+            // int i_y is x
+            int i_cb = 0;
+            int i_cr = 0;
+            for (int x = 0; x < codec_context->width; x += 2) {
+                // Y channel
+                frame->data[0][y * frame->linesize[0] + x] = frame_data.data[i_data++];
+                // Cb channel
+                frame->data[1][y * frame->linesize[1] + i_cb++] = frame_data.data[i_data++];
+                // Y channel
+                frame->data[0][y * frame->linesize[0] + x + 1] = frame_data.data[i_data++];
+                // Cr channel
+                frame->data[2][y * frame->linesize[2] + i_cr++] = frame_data.data[i_data++];
             }
         }
 
         frame->pts = i;
 
         encode(codec_context, frame, packet, out_file);
+
+        i++;
+
+        if (i % frames.size() == 0) {
+            LOG_DEBUG << "Progress " << i * 100.0 / frames.size() << "%";
+        }
     }
 
     encode(codec_context, nullptr, packet, out_file);
@@ -137,6 +161,7 @@ void VideoRenderer::render(const std::vector<Frame> &frames) {
     }
 
     fclose(out_file);
+    LOG_DEBUG << "File output.mp4 saved";
 
     av_frame_free(&frame);
     av_packet_free(&packet);

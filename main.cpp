@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <cstdio>
 #include <vector>
 #include <thread>
@@ -7,6 +8,13 @@
 #include <video_renderer.h>
 #include <logging.h>
 
+
+void save_image(const my::Frame &frame, const std::string &filename) {
+    std::ofstream out;
+    out.open(filename, std::ios::binary);
+    out.write((char*)frame.data, frame.size);
+    out.close();
+}
 
 int main(int argc, char **argv) {
     try {
@@ -25,11 +33,21 @@ int main(int argc, char **argv) {
         my::VideoRenderer renderer;
         renderer.find_codec("H264");
 
-        for (int i = 0; i < 300; ++i) {
+        int n = 2000;
+        LOG_DEBUG << "Going to get " << n << " frames video";
+        for (int i = 0; i < n; ++i) {
             auto frame = camera.get_frame();
             frames.push_back(std::move(frame));
             // std::this_thread::sleep_for(std::chrono::microseconds(100));
+
+            // save_image(frame, "data/webcam" + std::to_string(i) + ".jpg");
+
+            if ((i + 1) % 50 == 0) {
+                LOG_DEBUG << "Progress " << (i + 1) * 100.0 / n << "%";
+            }
         }
+
+        camera.stop();
 
         renderer.render(frames);
     } catch (const std::exception& e) {

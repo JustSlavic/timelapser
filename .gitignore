@@ -13,6 +13,10 @@ data/
 run
 vr
 
+# Image files
+*.jpg
+*.png
+
 # Video files
 *.avi
 *.mp4

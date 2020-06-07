@@ -89,7 +89,10 @@ postbuild:
 
 
 clean:
-	@find build -type f -name '*.o' -delete
-	@rm -f $(EXE_PATH)
+	@rm -rf bin/debug/$(PROJECT)
+	@rm -rf build/debug/*.o
+	@rm -rf bin/release/$(PROJECT)
+	@rm -rf build/release/*.o
+	@rm -rf data/*
 	@rm -f run
 	@echo "Cleaned"

@@ -1,15 +1,16 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 
 
 namespace my {
 
 struct Frame {
-    void *data{nullptr};
+    uint8_t *data{nullptr};
     size_t size{0};
 
-    Frame(void *data, size_t size);
+    Frame(uint8_t *data, size_t size);
     Frame(const Frame &);
     Frame(Frame &&);
     ~Frame();

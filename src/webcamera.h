@@ -9,10 +9,10 @@ namespace my {
 
 struct WebCamera {
     struct FrameBuffer {
-        void *start{nullptr};
+        uint8_t *start{nullptr};
         size_t size{0};
 
-        FrameBuffer(void *data, size_t size);
+        FrameBuffer(uint8_t *data, size_t size);
         FrameBuffer(const FrameBuffer&) = delete;
         FrameBuffer(FrameBuffer&&);
         ~FrameBuffer();

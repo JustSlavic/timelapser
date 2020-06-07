@@ -5,8 +5,8 @@
 
 namespace my {
 
-Frame::Frame(void *data_, size_t size_) {
-    data = malloc(size_);
+Frame::Frame(uint8_t *data_, size_t size_) {
+    data = (uint8_t*) malloc(size_);
     size = size_;
 
     memcpy(data, data_, size_);
@@ -14,7 +14,7 @@ Frame::Frame(void *data_, size_t size_) {
 
 
 Frame::Frame(const Frame &other) {
-    data = malloc(other.size);
+    data = (uint8_t*) malloc(other.size);
     size = other.size;
 
     memcpy(data, other.data, other.size);

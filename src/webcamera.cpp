@@ -26,7 +26,7 @@ static IOMethod io = IO_METHOD_MMAP;
 
 
 
-WebCamera::FrameBuffer::FrameBuffer(void *data, size_t size)
+WebCamera::FrameBuffer::FrameBuffer(uint8_t *data, size_t size)
     : start(data)
     , size(size)
 {}
@@ -98,6 +98,14 @@ void WebCamera::open(const char *device) {
             throw std::runtime_error("Device could not get image format");
         }
 
+        // image_format.fmt.pix.pixelformat = V4L2_PIX_FMT_JPEG;
+        // image_format.fmt.pix.width = 1600;
+        // image_format.fmt.pix.height = 900;
+
+        // if (ioctl(descriptor, VIDIOC_S_FMT, &image_format) < 0) {
+        //     throw std::runtime_error("Device could not get image format");
+        // }
+
         LOG_DEBUG << "Negotiated image format:";
         LOG_DEBUG << "    Resolution: " << image_format.fmt.pix.width << "x" << image_format.fmt.pix.height;
         LOG_DEBUG << "    Pixel format: " << pixel_format_cstr(image_format.fmt.pix.pixelformat);
@@ -139,7 +147,7 @@ void init_mmap(WebCamera *camera, size_t n) {
             throw std::runtime_error("Could not mmap memory for buffer");
         }
 
-        camera->buffers.emplace_back(memory, buffer.length);
+        camera->buffers.emplace_back((uint8_t*)memory, buffer.length);
     }
 }
 
