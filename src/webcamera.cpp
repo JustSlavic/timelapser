@@ -129,7 +129,7 @@ void init_mmap(WebCamera *camera, size_t n) {
 
     camera->buffers.reserve(request.count);
 
-    for (int i = 0; i < request.count; ++i) {
+    for (unsigned i = 0; i < request.count; ++i) {
         v4l2_buffer buffer{};
         buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         buffer.memory = V4L2_MEMORY_MMAP;
@@ -162,7 +162,7 @@ void WebCamera::init_buffers(size_t n) {
 void WebCamera::start() {
     if (io == IO_METHOD_MMAP) {
 
-        for (int i = 0; i < buffers.size(); ++i) {
+        for (size_t i = 0; i < buffers.size(); ++i) {
             v4l2_buffer buffer;
             buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
             buffer.memory = V4L2_MEMORY_MMAP;

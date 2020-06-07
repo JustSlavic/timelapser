@@ -42,17 +42,16 @@ void VideoRenderer::find_codec(const char *name) {
     codec_context->bit_rate = 400000;
     codec_context->width = 640;
     codec_context->height = 480;
-    codec_context->time_base = (AVRational){1, 25};
-    codec_context->framerate = (AVRational){25, 1};
+    codec_context->time_base = (AVRational){1, 30};
+    codec_context->framerate = (AVRational){30, 1};
 
-    codec_context->gop_size = 10;  // magic
+    codec_context->gop_size = 10;     // magic
     codec_context->max_b_frames = 1;  // magic
     codec_context->pix_fmt = AV_PIX_FMT_YUV422P;
     // codec_context->pix_fmt = AV_PIX_FMT_YUV420P;
 
-    // magic
     if (codec->id == AV_CODEC_ID_H264) {
-        av_opt_set(codec_context->priv_data, "preset", "slow", 0);
+        av_opt_set(codec_context->priv_data, "preset", "slow", 0); // magic
     }
 
     if (avcodec_open2(codec_context, codec, NULL) < 0) {
@@ -62,24 +61,37 @@ void VideoRenderer::find_codec(const char *name) {
     LOG_DEBUG << "Codec context allocated";
 }
 
-void encode(AVCodecContext *context, AVFrame *frame, AVPacket *packet, FILE *file) {
-    if (avcodec_send_frame(context, frame) < 0) {
-        throw std::runtime_error("Could not send frame to the codec");
-    }
-
-    while (true) {
-        int err = avcodec_receive_packet(context, packet);
-        if (err == AVERROR(EAGAIN) || err == AVERROR_EOF) return;
-        if (err < 0) {
-            throw std::runtime_error("Could not receive packet");
-        }
-
-        fwrite(packet->data, 1, packet->size, file);
-        av_packet_unref(packet);
-    }
-}
 
 void VideoRenderer::render(const std::vector<Frame> &frames) {
+    /* Prepare output file */
+    AVFormatContext *output_format_context{nullptr};
+    if (avformat_alloc_output_context2(&output_format_context, nullptr, nullptr, "output.mp4") < 0) {
+        throw std::runtime_error("Could not allocate output format context");
+    }
+
+    AVStream *out_video_stream = avformat_new_stream(output_format_context, nullptr);
+    if (out_video_stream == nullptr) {
+        throw std::runtime_error("Could not create video stream in output format");
+    }
+
+    if (avcodec_parameters_from_context(out_video_stream->codecpar, codec_context) < 0) {
+        throw std::runtime_error("Could not associate codec parameters with format");
+    }
+
+    /* Create output file */
+    if (!(output_format_context->oformat->flags & AVFMT_NOFILE)) {
+        if (avio_open(&output_format_context->pb, "data/output.mp4", AVIO_FLAG_WRITE) < 0) {
+            throw std::runtime_error("Could not open output file");
+        }
+    }
+
+    /* Write file header */
+    if (avformat_write_header(output_format_context, nullptr) < 0) {
+        throw std::runtime_error("Could not write header into file");
+    }
+
+    // ===
+
     AVFrame *frame = av_frame_alloc();
     if (frame == nullptr) {
         throw std::runtime_error("Could not allocate frame");
@@ -99,19 +111,8 @@ void VideoRenderer::render(const std::vector<Frame> &frames) {
         throw std::runtime_error("Could not allocate the video frame buffer");
     }
 
-    FILE *out_file = fopen("output.mp4", "w");
-    if (out_file == nullptr) {
-        throw std::runtime_error("Could not open file output.mp4");
-    }
-
     LOG_DEBUG << "File output.mp4 open";
     LOG_DEBUG << "Start rendering";
-
-
-    std::ofstream out;
-    out.open("renderer_image.jpg", std::ios::binary);
-    out.write((char*)frames[0].data, frames[0].size);
-    out.close();
 
     LOG_DEBUG << "Frame:";
     LOG_DEBUG << "    size:     " << frame->width << "x" << frame->height;
@@ -143,26 +144,42 @@ void VideoRenderer::render(const std::vector<Frame> &frames) {
 
         frame->pts = i;
 
-        encode(codec_context, frame, packet, out_file);
+        if (avcodec_send_frame(codec_context, frame) < 0) {
+            throw std::runtime_error("Could not send frame to the codec");
+        }
+
+        while (true) {
+            int err = avcodec_receive_packet(codec_context, packet);
+            if (err == AVERROR(EAGAIN) || err == AVERROR_EOF) break;
+            if (err < 0) {
+                throw std::runtime_error("Could not receive packet");
+            }
+
+            // fwrite(packet->data, 1, packet->size, file);
+            if (av_write_frame(output_format_context, packet) < 0) {
+                throw std::runtime_error("Could not write packet");
+            }
+            av_packet_unref(packet);
+        }
+
+        // encode(codec_context, frame, packet, out_file);
 
         i++;
 
-        if (i % frames.size() == 0) {
+        if (i % 10 == 0) {
             LOG_DEBUG << "Progress " << i * 100.0 / frames.size() << "%";
         }
     }
 
-    encode(codec_context, nullptr, packet, out_file);
+    av_write_trailer(output_format_context);
 
-    uint8_t endcode[] = { 0, 0, 1, 0xb7 };
-    if (codec->id == AV_CODEC_ID_MPEG1VIDEO ||
-        codec->id == AV_CODEC_ID_MPEG2VIDEO) {
-        fwrite(endcode, 1, sizeof(endcode), out_file);
+    if (output_format_context && !(output_format_context->oformat->flags & AVFMT_NOFILE)) {
+        avio_closep(&output_format_context->pb);
     }
 
-    fclose(out_file);
     LOG_DEBUG << "File output.mp4 saved";
 
+    avformat_free_context(output_format_context);
     av_frame_free(&frame);
     av_packet_free(&packet);
 }

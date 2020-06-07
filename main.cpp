@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
         my::VideoRenderer renderer;
         renderer.find_codec("H264");
 
-        int n = 2000;
+        int n = 200;
         LOG_DEBUG << "Going to get " << n << " frames video";
         for (int i = 0; i < n; ++i) {
             auto frame = camera.get_frame();
@@ -42,7 +42,7 @@ int main(int argc, char **argv) {
 
             // save_image(frame, "data/webcam" + std::to_string(i) + ".jpg");
 
-            if ((i + 1) % 50 == 0) {
+            if ((i + 1) % 10 == 0) {
                 LOG_DEBUG << "Progress " << (i + 1) * 100.0 / n << "%";
             }
         }
