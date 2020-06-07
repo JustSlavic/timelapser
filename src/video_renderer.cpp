@@ -87,10 +87,8 @@ void VideoRenderer::render(const std::vector<Frame> &frames) {
 
     /* Write file header */
     if (avformat_write_header(output_format_context, nullptr) < 0) {
-        throw std::runtime_error("Could not write header into file");
+        throw std::runtime_error("Could not write format header");
     }
-
-    // ===
 
     AVFrame *frame = av_frame_alloc();
     if (frame == nullptr) {
@@ -155,14 +153,12 @@ void VideoRenderer::render(const std::vector<Frame> &frames) {
                 throw std::runtime_error("Could not receive packet");
             }
 
-            // fwrite(packet->data, 1, packet->size, file);
-            if (av_write_frame(output_format_context, packet) < 0) {
+            if (av_interleaved_write_frame(output_format_context, packet) < 0) {
                 throw std::runtime_error("Could not write packet");
             }
+
             av_packet_unref(packet);
         }
-
-        // encode(codec_context, frame, packet, out_file);
 
         i++;
 
@@ -171,7 +167,9 @@ void VideoRenderer::render(const std::vector<Frame> &frames) {
         }
     }
 
-    av_write_trailer(output_format_context);
+    if (av_write_trailer(output_format_context) < 0) {
+        throw std::runtime_error("Could not write format trailer");
+    }
 
     if (output_format_context && !(output_format_context->oformat->flags & AVFMT_NOFILE)) {
         avio_closep(&output_format_context->pb);
