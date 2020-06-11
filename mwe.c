@@ -17,8 +17,6 @@
 #include <libavutil/timestamp.h>
 
 
-#define FRAME_RATE 25
-
 struct Camera {
     int fd;
 
@@ -27,6 +25,16 @@ struct Camera {
         uint8_t *data;
         size_t b_size;
     } *buffers;
+
+    struct {
+        int numerator;
+        int denominator;
+    } time_base;
+
+    struct {
+        int width;
+        int height;
+    } resolution;
 };
 
 struct Frame {
@@ -46,10 +54,43 @@ void open_camera(struct Camera *camera, const char *device) {
     memset(&image_format, 0, sizeof(struct v4l2_format));
     image_format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
-    ioctl(camera->fd, VIDIOC_G_FMT, &image_format);
+    if (ioctl(camera->fd, VIDIOC_G_FMT, &image_format) < 0) {
+        fprintf(stderr, "Could not get image format\n");
+        exit(EXIT_FAILURE);
+    }
 
     image_format.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
-    ioctl(camera->fd, VIDIOC_S_FMT, &image_format);
+    image_format.fmt.pix.width = 1280;
+    image_format.fmt.pix.height = 720;
+    camera->resolution.width = 1280;
+    camera->resolution.height = 720;
+
+    if (ioctl(camera->fd, VIDIOC_S_FMT, &image_format) < 0) {
+        fprintf(stderr, "Could not set image format\n");
+    }
+
+    struct v4l2_streamparm parm;
+    parm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+    if (ioctl(camera->fd, VIDIOC_G_PARM, &parm) < 0) {
+        fprintf(stderr, "Cannot get stream paramters\n");
+        exit(EXIT_FAILURE);
+    }
+
+    parm.parm.capture.timeperframe.numerator = 1;
+    parm.parm.capture.timeperframe.denominator = 30;
+
+    if (ioctl(camera->fd, VIDIOC_S_PARM, &parm) < 0) {
+        fprintf(stderr, "Cannot set stream paramters\n");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Camera time per frame = %d/%d\n",
+        parm.parm.capture.timeperframe.numerator,
+        parm.parm.capture.timeperframe.denominator);
+
+    camera->time_base.numerator = parm.parm.capture.timeperframe.numerator;
+    camera->time_base.denominator = parm.parm.capture.timeperframe.denominator;
 }
 
 void init_buffers(struct Camera *camera, size_t n) {
@@ -123,7 +164,7 @@ void close_camera(struct Camera *camera) {
     close(camera->fd);
 }
 
-void encode(AVCodecContext *codec_contex, AVFrame *frame, AVPacket *packet, AVFormatContext *);
+void encode(AVCodecContext *codec_contex, AVFrame *frame, AVPacket *packet, AVStream*, AVFormatContext *);
 void log_packet(const AVFormatContext *fmt_ctx, const AVPacket *pkt);
 
 int main() {
@@ -133,20 +174,19 @@ int main() {
     size_t n_frames = 300;
     struct Frame *frames = calloc(n_frames, sizeof(struct Frame));
 
-    {
-        struct Camera camera;
-        open_camera(&camera, "/dev/video0");
-        init_buffers(&camera, 2);
-        start_camera(&camera);
+    struct Camera camera;
+    open_camera(&camera, "/dev/video0");
+    init_buffers(&camera, 2);
+    start_camera(&camera);
 
-        for (int i = 0; i < n_frames; ++i) {
-            get_frame(&camera, frames + i);
-            if ((i+1) % 10 == 0) { printf("Filming progress: %5.2f%%\n", (i+1)*100.0/n_frames); }
-        }
-
-        stop_camera(&camera);
-        close_camera(&camera);
+    for (int i = 0; i < n_frames; ++i) {
+        get_frame(&camera, frames + i);
+        if ((i+1) % 10 == 0) { printf("Filming progress: %5.2f%%\n", (i+1)*100.0/n_frames); }
     }
+
+    stop_camera(&camera);
+    close_camera(&camera);
+
 
     {
         AVCodec *codec = avcodec_find_encoder(AV_CODEC_ID_H264);
@@ -154,10 +194,10 @@ int main() {
 
         /* set codec parameters */
         codec_context->bit_rate = 400000;
-        codec_context->width = 640;
-        codec_context->height = 480;
-        codec_context->time_base = (AVRational){300, 1};
-        codec_context->framerate = (AVRational){1, 300};
+        codec_context->width = camera.resolution.width;
+        codec_context->height = camera.resolution.height;
+        codec_context->time_base = (AVRational){camera.time_base.numerator, camera.time_base.denominator};
+        codec_context->framerate = (AVRational){camera.time_base.denominator, camera.time_base.numerator};
 
         /* emit one intra frame every ten frames
          * check frame pict_type before passing frame
@@ -175,19 +215,14 @@ int main() {
 
         avcodec_open2(codec_context, codec, NULL);
 
-        AVCodecParameters *codec_params = avcodec_parameters_alloc();
-        avcodec_parameters_from_context(codec_params, codec_context);
-
         struct AVFormatContext *output_format_context = NULL;
         avformat_alloc_output_context2(&output_format_context, NULL, "mp4", output_filename);
 
         AVStream *out_video_stream = avformat_new_stream(output_format_context, NULL);
 
-        /*     WHAT SHOULD I DO ???    */
         avcodec_parameters_from_context(out_video_stream->codecpar, codec_context);
         out_video_stream->time_base = codec_context->time_base;
-        out_video_stream->avg_frame_rate = codec_context->framerate;
-        /* =========================== */
+        // out_video_stream->avg_frame_rate = codec_context->framerate;
 
         if (!(output_format_context->oformat->flags & AVFMT_NOFILE)) {
             avio_open(&output_format_context->pb, output_filename, AVIO_FLAG_WRITE);
@@ -202,8 +237,7 @@ int main() {
 
         AVPacket *av_packet = av_packet_alloc();
 
-        // magic align=32
-        av_frame_get_buffer(av_frame, 32);
+        av_frame_get_buffer(av_frame, 0);
 
         for (int i = 0; i < n_frames; ++i) {
             av_frame_make_writable(av_frame);
@@ -229,11 +263,11 @@ int main() {
 
             av_frame->pts = i;
 
-            encode(codec_context, av_frame, av_packet, output_format_context);
+            encode(codec_context, av_frame, av_packet, out_video_stream, output_format_context);
             if ((i+1) % 10 == 0) { printf("Encoding progress: %5.2f%%\n", (i+1)*100.0/n_frames); }
         }
 
-        encode(codec_context, NULL, av_packet, output_format_context);
+        encode(codec_context, NULL, av_packet, out_video_stream, output_format_context);
 
         av_write_trailer(output_format_context);
 
@@ -244,7 +278,6 @@ int main() {
         avformat_free_context(output_format_context);
         av_frame_free(&av_frame);
         av_packet_free(&av_packet);
-        avcodec_parameters_free(&codec_params);
     }
 
     for (int i = 0; i < n_frames; ++i) {
@@ -259,6 +292,7 @@ void encode(
     AVCodecContext *codec_context,
     AVFrame *frame,
     AVPacket *packet,
+    AVStream *stream,
     AVFormatContext *output_format_context) {
     int ret;
 
@@ -267,6 +301,10 @@ void encode(
     while (ret >= 0) {
         ret = avcodec_receive_packet(codec_context, packet);
         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) return;
+
+
+        av_packet_rescale_ts(packet, codec_context->time_base, stream->time_base);
+        packet->stream_index = stream->index;
 
         log_packet(output_format_context, packet);
         av_interleaved_write_frame(output_format_context, packet);
