@@ -11,12 +11,12 @@ extern "C" {
 
 namespace my {
 
-struct VideoRenderer {
+struct VideoEncoder {
     AVCodecContext *codec_context{nullptr};
     AVCodec *codec{nullptr};
 
-    VideoRenderer();
-    ~VideoRenderer();
+    VideoEncoder();
+    ~VideoEncoder();
 
     void find_codec(const char *name);
     void render(const std::vector<Frame> &);

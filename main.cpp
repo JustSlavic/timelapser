@@ -5,7 +5,7 @@
 #include <thread>
 
 #include <webcamera.h>
-#include <video_renderer.h>
+#include <video_encoder.h>
 #include <logging.h>
 
 
@@ -30,10 +30,10 @@ int main(int argc, char **argv) {
         std::vector<my::Frame> frames;
         frames.reserve(5000);
 
-        my::VideoRenderer renderer;
-        renderer.find_codec("H264");
+        my::VideoEncoder encoder;
+        encoder.find_codec("H264");
 
-        int n = 200;
+        int n = 50;
         LOG_DEBUG << "Going to get " << n << " frames video";
         for (int i = 0; i < n; ++i) {
             auto frame = camera.get_frame();
@@ -49,7 +49,7 @@ int main(int argc, char **argv) {
 
         camera.stop();
 
-        renderer.render(frames);
+        encoder.render(frames);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         exit(EXIT_FAILURE);
