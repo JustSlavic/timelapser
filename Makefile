@@ -47,7 +47,7 @@ EXE_PATH := bin/$(SUB_DIR)/$(PROJECT)
 HEADERS := \
 	frame \
 	webcamera \
-	video_renderer \
+	video_encoder \
 	logging \
 	handler \
 
@@ -55,7 +55,7 @@ HEADERS := \
 SOURCES := \
 	frame \
 	webcamera \
-	video_renderer \
+	video_encoder \
 	logging \
 	handler \
 
@@ -65,7 +65,7 @@ OBJECTS := $(addprefix build/$(SUB_DIR)/, $(addsuffix .o, $(SOURCES)))
 
 # ==================================================================== #
 
-.PHONY: all debug release prebuild postbuild clean
+.PHONY: all debug release prebuild postbuild clean encoder mwe muxing
 
 
 all: debug
@@ -96,3 +96,13 @@ clean:
 	@rm -rf data/*
 	@rm -f run
 	@echo "Cleaned"
+
+encoder:
+	gcc encoder.c -o encoder -I/usr/include -L/usr/lib -lavutil -lavformat -lavcodec
+
+mwe:
+	gcc mwe.c -o mwe -ggdb3 -Wall -I/usr/include -L/usr/lib -lavutil -lavformat -lavcodec
+
+muxing:
+	gcc muxing.c -o muxing -ggdb3 -Wall -I/usr/include -L/usr/lib -lavutil -lavformat -lavcodec -lm -lswscale -lswresample
+
