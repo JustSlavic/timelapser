@@ -85,6 +85,7 @@ void VideoEncoder::render(const std::vector<Frame> &frames) {
     if (avcodec_parameters_from_context(out_video_stream->codecpar, codec_context) < 0) {
         throw std::runtime_error("Could not associate codec parameters with format");
     }
+    out_video_stream->time_base = codec_context->time_base;
 
     /* Create output file */
     if (!(output_format_context->oformat->flags & AVFMT_NOFILE)) {
@@ -170,6 +171,10 @@ void VideoEncoder::render(const std::vector<Frame> &frames) {
             }
 
             LOG_DEBUG << "Write packet " << packet->pts << " size: " << packet->size;
+
+            /* rescale output packet timestamp values from codec to stream timebase */
+            av_packet_rescale_ts(packet, codec_context->time_base, out_video_stream->time_base);
+            packet->stream_index = out_video_stream->index;
 
             if (av_interleaved_write_frame(output_format_context, packet) < 0) {
                 throw std::runtime_error("Could not write packet");

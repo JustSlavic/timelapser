@@ -1,5 +1,5 @@
-#ifndef GIR1_LOGGING_H
-#define GIR1_LOGGING_H
+#ifndef TIMELAPSER_LOGGING_H
+#define TIMELAPSER_LOGGING_H
 
 #include <sstream>
 #include <ostream>
@@ -82,4 +82,4 @@ private:
 
 }
 
-#endif //GIR1_LOGGING_H
+#endif //TIMELAPSER_LOGGING_H

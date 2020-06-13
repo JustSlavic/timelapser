@@ -2,6 +2,7 @@
 #include <fstream>
 #include <cstdio>
 #include <vector>
+#include <chrono>
 #include <thread>
 
 #include <webcamera.h>
@@ -35,6 +36,7 @@ int main(int argc, char **argv) {
 
         int n = 50;
         LOG_DEBUG << "Going to get " << n << " frames video";
+        auto t0 = std::chrono::steady_clock::now();
         for (int i = 0; i < n; ++i) {
             auto frame = camera.get_frame();
             frames.push_back(std::move(frame));
@@ -46,10 +48,14 @@ int main(int argc, char **argv) {
                 LOG_DEBUG << "Progress " << (i + 1) * 100.0 / n << "%";
             }
         }
+        auto t1 = std::chrono::steady_clock::now();
 
         camera.stop();
 
-        encoder.render(frames);
+        LOG_DEBUG << "Filming was made in "
+                  << std::chrono::duration_cast<microseconds>(t1 - t0).count << " microseconds";
+
+        // encoder.render(frames);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         exit(EXIT_FAILURE);

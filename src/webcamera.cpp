@@ -123,7 +123,7 @@ void init_mmap(WebCamera *camera, size_t n) {
         throw std::runtime_error("Could not request buffer from device, VIDIOC_REQBUFS");
     }
 
-    if (request.count < 2) {
+    if (request.count < n) {
         throw std::runtime_error("Insufficient buffer memory");
     }
 
