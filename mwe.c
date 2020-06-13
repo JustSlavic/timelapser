@@ -165,7 +165,7 @@ void open_camera(struct Camera *camera, const char *device) {
 
 void init_buffers(struct Camera *camera, size_t n) {
     if (io == IO_METHOD_MMAP) {
-        printf("Initig %ld buffers usig IO_METHOD_MMAP\n", n);
+        printf("Initing %ld buffers using IO_METHOD_MMAP\n", n);
 
         struct v4l2_requestbuffers request;
         memset(&request, 0, sizeof(struct v4l2_requestbuffers));
@@ -173,7 +173,10 @@ void init_buffers(struct Camera *camera, size_t n) {
         request.memory = V4L2_MEMORY_MMAP;
         request.count = n;
 
-        ioctl(camera->fd, VIDIOC_REQBUFS, &request);
+        if (ioctl(camera->fd, VIDIOC_REQBUFS, &request) < 0) {
+            fprintf(stderr, "Could not request buffers\n");
+            exit(EXIT_FAILURE);
+        }
 
         camera->buffers = calloc(request.count, sizeof(*camera->buffers));
         camera->n_buffers = request.count;
@@ -185,10 +188,18 @@ void init_buffers(struct Camera *camera, size_t n) {
             buffer.memory = V4L2_MEMORY_MMAP;
             buffer.index = i;
 
-            ioctl(camera->fd, VIDIOC_QUERYBUF, &buffer);
+            if (ioctl(camera->fd, VIDIOC_QUERYBUF, &buffer) < 0) {
+                fprintf(stderr, "Could ot query buffers\n");
+                exit(EXIT_FAILURE);
+            }
 
             void *memory = mmap(NULL, buffer.length, PROT_READ | PROT_WRITE,
                 MAP_SHARED, camera->fd, buffer.m.offset);
+
+            if (memory == MAP_FAILED) {
+                fprintf(stderr, "Could not mmap memory for buffer\n");
+                exit(EXIT_FAILURE);
+            }
 
             camera->buffers[i].data = memory;
             camera->buffers[i].b_size = buffer.length;
@@ -276,7 +287,10 @@ void start_camera(struct Camera *camera) {
     }
 
     enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    ioctl(camera->fd, VIDIOC_STREAMON, &type);
+    if (ioctl(camera->fd, VIDIOC_STREAMON, &type) < 0) {
+        fprintf(stderr, "Could not turn on stream\n");
+        exit(EXIT_FAILURE);
+    }
 }
 
 void get_frame(struct Camera *camera, struct Frame *frame) {
@@ -289,7 +303,10 @@ void get_frame(struct Camera *camera, struct Frame *frame) {
 
         long long t0 = get_useconds();
 
-        ioctl(camera->fd, VIDIOC_DQBUF, &buffer);
+        if (ioctl(camera->fd, VIDIOC_DQBUF, &buffer) < 0) {
+            fprintf(stderr, "Could not dequeue buffer");
+            exit(EXIT_FAILURE);
+        }
 
         long long t1 = get_useconds();
 
@@ -350,7 +367,10 @@ void get_frame(struct Camera *camera, struct Frame *frame) {
 
 void stop_camera(struct Camera *camera) {
     enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    ioctl(camera->fd, VIDIOC_STREAMOFF, &type);
+    if (ioctl(camera->fd, VIDIOC_STREAMOFF, &type) < 0) {
+        fprintf(stderr, "Could not turn of the stream\n");
+        exit(EXIT_FAILURE);
+    }
 }
 
 void close_camera(struct Camera *camera) {
@@ -409,7 +429,12 @@ int main(int argc, char **argv) {
 
     {
         AVCodec *codec = avcodec_find_encoder(AV_CODEC_ID_H264);
+
         AVCodecContext *codec_context = avcodec_alloc_context3(codec);
+        if (codec_context == NULL) {
+            fprintf(stderr, "Could not allocate codec context for codec H264\n");
+            exit(EXIT_FAILURE);
+        }
 
         /* set codec parameters */
         codec_context->bit_rate = 400000;
@@ -432,34 +457,69 @@ int main(int argc, char **argv) {
             av_opt_set(codec_context->priv_data, "preset", "slow", 0);
         }
 
-        avcodec_open2(codec_context, codec, NULL);
+        if (avcodec_open2(codec_context, codec, NULL) < 0) {
+            fprintf(stderr, "Could not open codec\n");
+            exit(EXIT_FAILURE);
+        }
 
         struct AVFormatContext *output_format_context = NULL;
-        avformat_alloc_output_context2(&output_format_context, NULL, "mp4", output_filename);
+        if (avformat_alloc_output_context2(&output_format_context, NULL, "mp4", output_filename) < 0) {
+            fprintf(stderr, "Could not allocate output format context\n");
+            exit(EXIT_FAILURE);
+        }
 
         AVStream *out_video_stream = avformat_new_stream(output_format_context, NULL);
+        if (out_video_stream == NULL) {
+            fprintf(stderr, "Could not create video stream in output format\n");
+            exit(EXIT_FAILURE);
+        }
 
-        avcodec_parameters_from_context(out_video_stream->codecpar, codec_context);
+        if (avcodec_parameters_from_context(out_video_stream->codecpar, codec_context) < 0) {
+            fprintf(stderr, "Could not associate codec parameters with format\n");
+            exit(EXIT_FAILURE);
+        }
+
         out_video_stream->time_base = codec_context->time_base;
         // out_video_stream->avg_frame_rate = codec_context->framerate;
 
         if (!(output_format_context->oformat->flags & AVFMT_NOFILE)) {
-            avio_open(&output_format_context->pb, output_filename, AVIO_FLAG_WRITE);
+            if (avio_open(&output_format_context->pb, output_filename, AVIO_FLAG_WRITE) < 0) {
+                fprintf(stderr, "Could not open output file\n");
+                exit(EXIT_FAILURE);
+            }
         }
 
-        avformat_write_header(output_format_context, NULL);
+        if (avformat_write_header(output_format_context, NULL) < 0) {
+            fprintf(stderr, "Could not write format header\n");
+            exit(EXIT_FAILURE);
+        }
 
         AVFrame *av_frame = av_frame_alloc();
+        if (av_frame == NULL) {
+            fprintf(stderr, "Could not allocate AVFrame\n");
+            exit(EXIT_FAILURE);
+        }
+
         av_frame->format = codec_context->pix_fmt;
         av_frame->width  = codec_context->width;
         av_frame->height = codec_context->height;
 
         AVPacket *av_packet = av_packet_alloc();
+        if (av_packet == NULL) {
+            fprintf(stderr, "Could not allocate AVPacket\n");
+            exit(EXIT_FAILURE);
+        }
 
-        av_frame_get_buffer(av_frame, 0);
+        if (av_frame_get_buffer(av_frame, 0) < 0) {
+            fprintf(stderr, "Could not allocate the video AVFrame buffer\n");
+            exit(EXIT_FAILURE);
+        }
 
         for (int i = 0; i < n_frames; ++i) {
-            av_frame_make_writable(av_frame);
+            if (av_frame_make_writable(av_frame) < 0) {
+                fprintf(stderr, "Could not make av_frame writable\n");
+                exit(EXIT_FAILURE);
+            }
 
             /*
              *  YUYV pixel layout:
@@ -527,7 +587,10 @@ void encode(
         packet->stream_index = stream->index;
 
         // log_packet(output_format_context, packet);
-        av_interleaved_write_frame(output_format_context, packet);
+        if (av_interleaved_write_frame(output_format_context, packet) < 0) {
+            fprintf(stderr, "Could not write AVPacket in container\n");
+            exit(EXIT_FAILURE);
+        }
         av_packet_unref(packet);
     }
 }
