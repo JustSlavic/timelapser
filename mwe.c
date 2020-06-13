@@ -292,6 +292,7 @@ void get_frame(struct Camera *camera, struct Frame *frame) {
         ioctl(camera->fd, VIDIOC_DQBUF, &buffer);
 
         long long t1 = get_useconds();
+
         printf("%llds and %lldus.\n", (t1 - t0) / 1000000, (t1 - t0) % 1000000);
         printf("buffer.index = %d\n", buffer.index);
 
@@ -312,8 +313,14 @@ void get_frame(struct Camera *camera, struct Frame *frame) {
         }
 
         long long t1 = get_useconds();
-        printf("\r%llds and %lldus.; ", (t1 - t0) / 1000000, (t1 - t0) % 1000000);
-        printf("buffer.index = %d; ", buffer.index);
+        printf("\r%llds. and %lldus. ", (t1 - t0) / 1000000, (t1 - t0) % 1000000);
+        printf("buffer.index = %d ", buffer.index);
+        static int j = 1;
+        static long long avg_time = 0;
+        avg_time = avg_time * (double)(j - 1) / j + (double)(t1 - t0) / j;
+        printf("average time = %lld; ", avg_time);
+        printf("i = %d             ", j-1);
+        j++;
         fflush(stdout);
 
         int i;
@@ -394,7 +401,7 @@ int main(int argc, char **argv) {
         // if ((i+1) % 10 == 0) { printf("Filming progress: %5.2f%%\n", (i+1)*100.0/n_frames); }
     }
 
-    exit(0);
+    // exit(0);
 
     stop_camera(&camera);
     close_camera(&camera);
